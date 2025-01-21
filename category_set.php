@@ -2,47 +2,45 @@
 // Include the database connection file
 include 'db.php';
 
-// Start session (assuming admin login is required)
-
-
 // Fetch all categories/specialties from the database
 $categories = $pdo->query("SELECT * FROM specialties")->fetchAll(PDO::FETCH_ASSOC);
 
-// Handle form submissions
+// Fetch all work categories for the dropdown
+$work_categories = $pdo->query("SELECT * FROM work_categories")->fetchAll(PDO::FETCH_ASSOC);
+
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $specialty_name = $_POST['specialty_name'] ?? '';
+    $category_id = $_POST['category_id'] ?? null; // Fetch the selected work category
     $specialty_id = $_POST['specialty_id'] ?? null;
 
-    // Handle image upload
     // Handle image upload with support for multiple formats
-$image_path = '';
-if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-    $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    $file_type = mime_content_type($_FILES['image']['tmp_name']); // Get actual MIME type
+    $image_path = '';
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        $file_type = mime_content_type($_FILES['image']['tmp_name']); // Get actual MIME type
 
-    if (in_array($file_type, $allowed_types)) {
-        $target_dir = __DIR__ . "/uploads/";
-        $file_name = uniqid() . "_" . basename($_FILES['image']['name']);
-        $target_file = $target_dir . $file_name;
+        if (in_array($file_type, $allowed_types)) {
+            $target_dir = __DIR__ . "/uploads/";
+            $file_name = uniqid() . "_" . basename($_FILES['image']['name']);
+            $target_file = $target_dir . $file_name;
 
-        // Create directory if it doesn't exist
-        if (!is_dir($target_dir)) {
-            mkdir($target_dir, 0777, true);
-        }
+            // Create directory if it doesn't exist
+            if (!is_dir($target_dir)) {
+                mkdir($target_dir, 0777, true);
+            }
 
-        // Move uploaded file
-        if (move_uploaded_file($_FILES['image']['tmp_name'], $target_file)) {
-            $image_path = "uploads/" . $file_name;
+            // Move uploaded file
+            if (move_uploaded_file($_FILES['image']['tmp_name'], $target_file)) {
+                $image_path = "uploads/" . $file_name;
+            } else {
+                echo "<script>alert('Failed to upload image.');</script>";
+            }
         } else {
-            echo "<script>alert('Failed to upload image.');</script>";
+            echo "<script>alert('Invalid image format. Only JPG, JPEG, PNG, and WEBP are allowed.');</script>";
+            exit;
         }
-    } else {
-        echo "<script>alert('Invalid image format. Only JPG, JPEG, PNG, and WEBP are allowed.');</script>";
-        exit;
     }
-}
-
 
     // Retain existing image if no new one is uploaded
     if ($specialty_id && empty($image_path)) {
@@ -54,22 +52,20 @@ if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
     // Insert or update category details in the database
     if ($specialty_id) {
         // Update existing category
-        $sql = "UPDATE specialties SET specialty_name = ?, image = ? WHERE specialty_id = ?";
+        $sql = "UPDATE specialties SET specialty_name = ?, image = ?, category_id = ? WHERE specialty_id = ?";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$specialty_name, $image_path, $specialty_id]);
+        $stmt->execute([$specialty_name, $image_path, $category_id, $specialty_id]);
     } else {
         // Insert new category
-        $sql = "INSERT INTO specialties (specialty_name, image) VALUES (?, ?)";
+        $sql = "INSERT INTO specialties (specialty_name, image, category_id) VALUES (?, ?, ?)";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$specialty_name, $image_path]);
+        $stmt->execute([$specialty_name, $image_path, $work_category_id]);
     }
     echo "<script>alert('Category saved successfully!');</script>";
     header("Location: category_set.php");
     exit;
 }
-
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -106,7 +102,17 @@ if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
                     <label for="specialty_name">Name</label>
                     <input type="text" id="specialty_name" name="specialty_name" class="form-control" required>
                 </div>
-               
+                <div class="form-group">
+                    <label for="work_category_id">Work Category</label>
+                    <select id="category_id" name="category_id" class="form-control" required>
+                        <option value="">-- Select Work Category --</option>
+                        <?php foreach ($work_categories as $category): ?>
+                            <option value="<?= htmlspecialchars($category['category_id']) ?>">
+                                <?= htmlspecialchars($category['category_name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label for="image">Image</label>
                     <input type="file" id="image" name="image" class="form-control-file">
@@ -125,11 +131,10 @@ if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
                             <img src="<?= htmlspecialchars($category['image']) ?>" alt="Category Image" class="card-img-top category-img">
                             <div class="card-body">
                                 <h5 class="card-title"><?= htmlspecialchars($category['specialty_name']) ?></h5>
-                                
                                 <button class="btn btn-sm btn-warning edit-category" 
                                         data-id="<?= $category['specialty_id'] ?>" 
                                         data-name="<?= htmlspecialchars($category['specialty_name']) ?>" 
-                                       
+                                        data-category="<?= $category['category_id'] ?>">
                                     Edit
                                 </button>
                             </div>
@@ -146,11 +151,11 @@ if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
         button.addEventListener('click', function() {
             const specialtyId = this.getAttribute('data-id');
             const name = this.getAttribute('data-name');
-            const description = this.getAttribute('data-description');
+            const categoryId = this.getAttribute('data-category');
 
             document.getElementById('specialty_id').value = specialtyId;
             document.getElementById('specialty_name').value = name;
-          
+            document.getElementById('work_category_id').value = categoryId;
         });
     });
 </script>
