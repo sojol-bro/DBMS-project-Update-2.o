@@ -3,28 +3,35 @@ session_start();
 include('db.php');
 
 // Get the category_id from the URL (query string)
-$category_id = isset($_GET['p_category_id']) ? $_GET['p_category_id'] : 0;
+$category_id = isset($_GET['p_category_id']) ? (int)$_GET['p_category_id'] : 0;
 
 try {
-    // Fetch the selected category name based on category_id
     if ($category_id > 0) {
+        // Fetch the selected category name based on category_id
         $sql = "SELECT category_name FROM product_categories WHERE p_category_id = :p_category_id";
         $stmt = $pdo->prepare($sql);
         $stmt->bindParam(':p_category_id', $category_id, PDO::PARAM_INT);
         $stmt->execute();
         $category = $stmt->fetch(PDO::FETCH_ASSOC);
 
+        // Check if the category exists
+        if (!$category) {
+            throw new Exception("Category not found.");
+        }
+
         // Fetch products for the selected category
-        $sql = "SELECT product_name, price, image FROM market_products WHERE p_category_id = :p_category_id AND stock > 0";
+        $sql = "SELECT product_id, product_name, price, image, worker_id 
+                FROM market_products 
+                WHERE p_category_id = :p_category_id AND stock > 0";
         $stmt = $pdo->prepare($sql);
         $stmt->bindParam(':p_category_id', $category_id, PDO::PARAM_INT);
         $stmt->execute();
         $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
-        echo "Invalid category.";
+        throw new Exception("Invalid category ID.");
     }
-} catch (PDOException $e) {
-    echo "Error: " . $e->getMessage();
+} catch (Exception $e) {
+    $error_message = $e->getMessage();
 }
 ?>
 <!DOCTYPE html>
@@ -66,7 +73,6 @@ try {
             text-decoration: underline;
         }
 
-        /* Left side for Back button */
         .navbar .back-button {
             position: absolute;
             left: 20px;
@@ -78,7 +84,6 @@ try {
             text-decoration: underline;
         }
 
-        /* Centered Home link */
         .navbar .home-link {
             margin-left: auto;
         }
@@ -98,6 +103,11 @@ try {
             width: 250px;
             display: inline-block;
             vertical-align: top;
+            transition: box-shadow 0.3s;
+        }
+
+        .product:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
 
         .product img {
@@ -116,33 +126,53 @@ try {
             font-weight: bold;
             margin-top: 10px;
         }
+
+        .product a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .product a:hover {
+            color: #007bff;
+        }
+
+        .error-message {
+            color: red;
+            font-weight: bold;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <div class="navbar">
         <div class="back-button">
-            <a href="javascript:history.back();">&lt; back</a> <!-- JavaScript back button -->
+            <a href="javascript:history.back();">&lt; back</a>
         </div>
         <a href="index.php" class="home-link">Home</a>
     </div>
 
     <div class="main-content">
-        <h1><?php echo htmlspecialchars($category['category_name'], ENT_QUOTES, 'UTF-8'); ?></h1>
-
-        <?php if (!empty($products)) { ?>
-            <div class="products">
-                <?php
-                foreach ($products as $product) {
-                    echo "<div class='product'>";
-                    echo "<img src='" . htmlspecialchars($product['image'], ENT_QUOTES, 'UTF-8') . "' alt='Product Image'>";
-                    echo "<h3>" . htmlspecialchars($product['product_name'], ENT_QUOTES, 'UTF-8') . "</h3>";
-                    echo "<p class='price'>৳ " . number_format($product['price'], 2) . "</p>";
-                    echo "</div>";
-                }
-                ?>
-            </div>
+        <?php if (isset($error_message)) { ?>
+            <p class="error-message"><?php echo htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8'); ?></p>
         <?php } else { ?>
-            <p>No products available in this category.</p>
+            <h1><?php echo htmlspecialchars($category['category_name'], ENT_QUOTES, 'UTF-8'); ?></h1>
+
+            <?php if (!empty($products)) { ?>
+                <div class="products">
+                    <?php foreach ($products as $product) { ?>
+                        <a href="product_details.php?product_name=<?php echo urlencode($product['product_name']); ?>&worker_id=<?php echo urlencode($product['worker_id']); ?>" class="product-link">
+    <div class="product">
+        <img src="<?php echo htmlspecialchars($product['image'], ENT_QUOTES, 'UTF-8'); ?>" alt="Product Image">
+        <h3><?php echo htmlspecialchars($product['product_name'], ENT_QUOTES, 'UTF-8'); ?></h3>
+        <p class="price">৳ <?php echo number_format($product['price'], 2); ?></p>
+    </div>
+</a>
+
+                    <?php } ?>
+                </div>
+            <?php } else { ?>
+                <p>No products available in this category.</p>
+            <?php } ?>
         <?php } ?>
     </div>
 </body>

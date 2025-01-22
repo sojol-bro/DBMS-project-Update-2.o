@@ -104,13 +104,13 @@ $stmt->closeCursor();
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ml-auto">
                 <li class="nav-item">
-                        <a class="nav-link" href="market.php"> Market </a>
+                        <a class="nav-link" href="market_worker.php"> Market </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="job_request.php">Job Requests</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Previous Works</a>
+                        <a class="nav-link" href="previous_work.php">Previous Works</a>
                     </li>
                    
                     <li class="nav-item">
